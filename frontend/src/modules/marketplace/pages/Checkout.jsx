@@ -65,11 +65,31 @@ export default function Checkout() {
 
     useEffect(() => {
         const unsubscribe = auth.onAuthStateChanged(async (u) => {
-            setUser(u);
-            if (u) {
+            // Handle both Firebase users and localStorage test users
+            let currentUser = u;
+            if (!currentUser) {
+                try {
+                    const localUserStr = localStorage.getItem('user');
+                    if (localUserStr) {
+                        const localUser = JSON.parse(localUserStr);
+                        // Create a mock user object for localStorage users
+                        currentUser = {
+                            uid: localUser.uid,
+                            email: localUser.email || '',
+                            phoneNumber: localUser.phone || '',
+                            phone: localUser.phone || ''
+                        };
+                    }
+                } catch (e) {
+                    console.error('Error parsing localStorage user:', e);
+                }
+            }
+            
+            setUser(currentUser);
+            if (currentUser) {
                 setFetchingSavedAddress(true);
                 try {
-                    const res = await authFetch(`/consumer/${u.uid}/addresses`);
+                    const res = await authFetch(`/consumer/${currentUser.uid}/addresses`);
                     const data = await res.json();
                     const addresses = data.success ? (data.addresses || []) : [];
                     setSavedAddresses(addresses);
@@ -95,7 +115,35 @@ export default function Checkout() {
                 }
             }
         });
-        return () => unsubscribe();
+        
+        // Also listen for localStorage user changes
+        const handleUserDataChanged = () => {
+            // Trigger auth state check when localStorage user changes
+            const localUserStr = localStorage.getItem('user');
+            if (localUserStr && !auth.currentUser) {
+                try {
+                    const localUser = JSON.parse(localUserStr);
+                    const mockUser = {
+                        uid: localUser.uid,
+                        email: localUser.email || '',
+                        phoneNumber: localUser.phone || '',
+                        phone: localUser.phone || ''
+                    };
+                    setUser(mockUser);
+                } catch (e) {
+                    console.error('Error parsing localStorage user:', e);
+                }
+            } else if (!localUserStr) {
+                setUser(null);
+            }
+        };
+        
+        window.addEventListener('userDataChanged', handleUserDataChanged);
+        
+        return () => {
+            unsubscribe();
+            window.removeEventListener('userDataChanged', handleUserDataChanged);
+        };
     }, []);
 
     useEffect(() => {
@@ -250,6 +298,7 @@ export default function Checkout() {
                     handler: async function (response) {
                         try {
                             const selectedCartItems = selectedCheckoutItems;
+                            const currentUID = getUID();
                             const verifyResponse = await authFetch('/payment/verify', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
@@ -260,7 +309,7 @@ export default function Checkout() {
                                     cartItems: selectedCartItems,
                                     customerInfo: customerInfo,
                                     amount: subtotal,
-                                    uid: auth.currentUser?.uid || 'guest'
+                                    uid: currentUID || 'guest'
                                 })
                             });
 
@@ -335,8 +384,8 @@ export default function Checkout() {
                 address: shippingAddress
             };
 
-            const currentUser = auth.currentUser;
-            if (!currentUser) {
+            const currentUID = getUID();
+            if (!currentUID) {
                 alert("Please login to place an order");
                 setLoading(false);
                 return;
@@ -346,7 +395,7 @@ export default function Checkout() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    uid: currentUser.uid,
+                    uid: currentUID,
                     cartItems: selectedCartItems,
                     customerInfo: customerInfo,
                     amount: subtotal
@@ -404,8 +453,28 @@ export default function Checkout() {
         await removeFromCart(productId);
     };
 
+    // Helper to get current user UID (consistent with cart utilities)
+    const getUID = () => {
+        const localUserStr = localStorage.getItem('user');
+        if (!localUserStr) {
+            // Local storage says logged out. Clean up any orphaned Firebase session.
+            if (auth.currentUser) {
+                auth.signOut().catch(console.error);
+            }
+            return null;
+        }
+
+        try {
+            const localUser = JSON.parse(localUserStr);
+            return auth.currentUser?.uid || localUser.uid;
+        } catch (e) {
+            return null;
+        }
+    };
+
     const handleContinue = async () => {
-        if (!auth.currentUser) {
+        const currentUID = getUID();
+        if (!currentUID) {
             window.dispatchEvent(new Event('openLoginModal'));
             return;
         }
