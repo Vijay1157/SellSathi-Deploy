@@ -73,6 +73,7 @@ app.use('/reviews', reviewRoutes);
 app.use('/webhook', shippingRoutes); // Unified webhook path
 
 // Health Check
+app.get('/', (req, res) => res.status(200).json({ message: 'SellSathi Backend API', status: 'UP', timestamp: new Date().toISOString() }));
 app.get('/health', (req, res) => res.status(200).json({ status: 'UP', timestamp: new Date().toISOString() }));
 
 // Error Handling
