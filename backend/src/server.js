@@ -36,6 +36,11 @@ app.use(cors({
             return callback(null, true);
         }
         
+        // Allow same-origin requests (for testing)
+        if (origin === 'https://sellsathi-backend-9vnn.onrender.com') {
+            return callback(null, true);
+        }
+        
         callback(new Error('Not allowed by CORS'));
     },
     credentials: true
