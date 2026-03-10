@@ -125,6 +125,7 @@ export default function PhoneOtpForm({
 
                         {isRegistering && passwordFields}
 
+                        {/* Registration and Login Buttons - Updated for direct registration */}
                         {isRegistering ? (
                             <button type="button" className="auth-submit-btn" onClick={onRegisterDirect} disabled={phone.length < 10 || loading}>
                                 {loading ? 'Processing...' : 'Register'}
