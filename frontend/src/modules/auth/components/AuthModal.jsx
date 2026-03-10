@@ -286,35 +286,17 @@ export default function AuthModal({ isOpen, onClose, onSuccess, hideRegister }) 
 
         setLoading(true);
         try {
-            let idToken = isGoogleRegistration ? googleIdToken : null;
-            let isTestMode = false;
-
-            if (!isGoogleRegistration) {
-                try {
-                    const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
-                    const cred = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-                    await updateProfile(cred.user, { displayName: formData.fullName });
-                    idToken = await cred.user.getIdToken();
-                } catch (fbErr) {
-                    if (fbErr.code === 'auth/operation-not-allowed') isTestMode = true;
-                    else if (fbErr.code === 'auth/email-already-in-use') {
-                        const { signInWithEmailAndPassword } = await import('firebase/auth');
-                        const cred = await signInWithEmailAndPassword(auth, formData.email, formData.password);
-                        idToken = await cred.user.getIdToken();
-                    }
-                    else throw fbErr;
-                }
-            }
+            // Direct registration to backend without Firebase
+            const phoneNumber = phone ? `+91${phone}` : null;
 
             const response = await authFetch('/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    idToken,
-                    isTest: isTestMode,
+                    isTest: true, // Always use test mode for direct registration
                     email: formData.email,
-                    phone: isEmailSignup && !isGoogleRegistration ? null : (phone ? `+91${phone}` : null),
-                    password: formData.password || null,
+                    phone: phoneNumber,
+                    password: formData.password,
                     fullName: formData.fullName,
                     dob: formData.dob
                 })
@@ -323,9 +305,8 @@ export default function AuthModal({ isOpen, onClose, onSuccess, hideRegister }) 
             const data = await response.json();
             if (data.success) {
                 persistUser(data, {
-                    phone: phone ? `+91${phone}` : null,
+                    phone: phoneNumber,
                     email: formData.email,
-                    isDevMode: isTestMode,
                     fullName: formData.fullName,
                     dob: formData.dob
                 });
@@ -335,15 +316,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess, hideRegister }) 
             } else setError(data.message || 'Registration failed');
         } catch (err) {
             console.error('Registration Error:', err);
-            const msg = err.code === 'auth/email-already-in-use'
-                ? 'This email is already registered. If you forgot your password, please use Forgot Password or login with other methods.'
-                : err.code === 'auth/weak-password'
-                    ? 'The password is too weak. Please use at least 6 characters.'
-                    : err.code === 'auth/invalid-email'
-                        ? 'The email address is not valid.'
-                        : err.code === 'auth/operation-not-allowed'
-                            ? 'Email registration is currently unavailable. Please try Phone login.'
-                            : err.message || 'Registration failed. Please try again.';
+            const msg = err.message || 'Registration failed. Please try again.';
             setError(msg);
         }
         finally { setLoading(false); }
