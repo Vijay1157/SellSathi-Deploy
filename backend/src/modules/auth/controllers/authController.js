@@ -15,10 +15,35 @@ const login = async (req, res) => {
         let decodedToken = null;
 
         if (isTest) {
-            uid = phone ? `test_${phone.replace(/[^0-9]/g, '')}` : `test_email_${(testEmail || "user").replace(/[^a-zA-Z0-9]/g, '')}`;
-            email = testEmail || null;
-            fullName = req.body.fullName || testEmail?.split('@')[0] || "Test User";
-            phoneNumber = phone || null;
+            // Handle email/password login
+            if (testEmail && req.body.password) {
+                // Find user by email and verify password
+                const usersRef = db.collection("users");
+                const emailQuery = await usersRef.where("email", "==", testEmail).get();
+                
+                if (emailQuery.empty) {
+                    return res.status(401).json({ success: false, message: "Invalid email or password" });
+                }
+                
+                const userDoc = emailQuery.docs[0];
+                const userData = userDoc.data();
+                
+                // Simple password check (in production, use proper hashing)
+                if (userData.password !== req.body.password) {
+                    return res.status(401).json({ success: false, message: "Invalid email or password" });
+                }
+                
+                uid = userDoc.id;
+                email = userData.email;
+                fullName = userData.fullName;
+                phoneNumber = userData.phone;
+            } else {
+                // Handle phone login (existing logic)
+                uid = phone ? `test_${phone.replace(/[^0-9]/g, '')}` : `test_email_${(testEmail || "user").replace(/[^a-zA-Z0-9]/g, '')}`;
+                email = testEmail || null;
+                fullName = req.body.fullName || testEmail?.split('@')[0] || "Test User";
+                phoneNumber = phone || null;
+            }
         } else {
             if (!idToken) return res.status(400).json({ success: false, message: "ID token is required" });
             decodedToken = await admin.auth().verifyIdToken(idToken);
@@ -148,7 +173,12 @@ const register = async (req, res) => {
         let phoneNumber = phone;
 
         if (isTest) {
-            uid = phone ? `test_${phone.replace(/[^0-9]/g, '')}` : `test_email_${Date.now()}`;
+            // For email registration, use email as unique identifier
+            if (email) {
+                uid = `email_${email.replace(/[^a-zA-Z0-9]/g, '_')}`;
+            } else {
+                uid = phone ? `test_${phone.replace(/[^0-9]/g, '')}` : `test_email_${Date.now()}`;
+            }
         } else {
             if (!idToken) return res.status(400).json({ success: false, message: "ID token is required" });
             const decodedToken = await admin.auth().verifyIdToken(idToken);

@@ -235,25 +235,23 @@ export default function AuthModal({ isOpen, onClose, onSuccess, hideRegister }) 
         if (e) e.preventDefault();
         setError('');
 
-        // Only require email/password for login; registration fields are handled in handleRegisterDirectly
+        // Only require email/password for login
         if (!formData.email.trim() || !formData.password.trim()) {
             setError('Please enter both email and password');
             return;
         }
         setLoading(true);
         try {
-            let idToken = null, isTestMode = false;
-            try {
-                const cred = await signInWithEmailAndPassword(auth, formData.email, formData.password);
-                idToken = await cred.user.getIdToken();
-            } catch (loginErr) {
-                if (loginErr.code === 'auth/user-not-found' || loginErr.code === 'auth/invalid-credential') {
-                    try { const { createUserWithEmailAndPassword } = await import('firebase/auth'); const reg = await createUserWithEmailAndPassword(auth, formData.email, formData.password); idToken = await reg.user.getIdToken(); }
-                    catch (regErr) { if (regErr.code === 'auth/operation-not-allowed') isTestMode = true; else throw regErr; }
-                } else if (loginErr.code === 'auth/operation-not-allowed') isTestMode = true;
-                else throw loginErr;
-            }
-            const response = await authFetch('/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken, isTest: isTestMode, email: formData.email, password: formData.password }) });
+            // Direct login to backend without Firebase
+            const response = await authFetch('/auth/login', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ 
+                    isTest: true, // Use test mode for direct login
+                    email: formData.email, 
+                    password: formData.password 
+                }) 
+            });
             const data = await response.json();
             if (data.success) {
                 persistUser(data, { email: formData.email, fullName: data.fullName || formData.fullName, dob: formData.dob });
@@ -262,8 +260,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess, hideRegister }) 
                 handleClose();
             } else setError(data.message || 'Login failed');
         } catch (err) {
-            const msgs = { 'auth/wrong-password': 'Incorrect password.', 'auth/operation-not-allowed': 'Email/Password auth not enabled in Firebase.', 'auth/weak-password': 'Password too weak (min 6 chars).', 'auth/email-already-in-use': 'Email already in use.' };
-            setError(msgs[err.code] || err.message || 'Authentication failed.');
+            setError(err.message || 'Login failed. Please try again.');
         } finally { setLoading(false); }
     };
 

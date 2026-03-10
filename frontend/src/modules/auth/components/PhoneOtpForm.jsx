@@ -125,9 +125,15 @@ export default function PhoneOtpForm({
 
                         {isRegistering && passwordFields}
 
-                        <button type="submit" className="auth-submit-btn" disabled={phone.length < 10 || loading}>
-                            {loading ? 'Processing...' : (isRegistering ? 'Register' : 'Get OTP')}
-                        </button>
+                        {isRegistering ? (
+                            <button type="button" className="auth-submit-btn" onClick={onRegisterDirect} disabled={phone.length < 10 || loading}>
+                                {loading ? 'Processing...' : 'Register'}
+                            </button>
+                        ) : (
+                            <button type="button" className="auth-submit-btn" onClick={() => alert('Please use Email Login for existing users')} disabled={loading}>
+                                Use Email Login
+                            </button>
+                        )}
                     </div>
                 ) : (
                     /* OTP step */
