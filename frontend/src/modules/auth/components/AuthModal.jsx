@@ -124,26 +124,13 @@ export default function AuthModal({ isOpen, onClose, onSuccess, hideRegister }) 
         // 1. Basic phone validation
         if (phone.length < 10) { setError('Please enter a valid 10-digit phone number'); return; }
 
-        // 2. Registration fields validation (if on regular phone registration flow)
-        if (isRegistering && !isEmailSignup && !isGoogleRegistration) {
-            if (!formData.fullName.trim() || !formData.dob || !formData.email.trim() || !formData.password.trim()) {
-                setError('Please fill in all registration details');
-                return;
-            }
-            if (formData.password.length < 6) {
-                setError('Password must be at least 6 characters');
-                return;
-            }
-            if (formData.password !== formData.confirmPassword) {
-                setError('Passwords do not match');
-                return;
-            }
-        }
+        // 2. Skip registration validation since registration uses direct method
+        // This function is now only for login
 
         const phoneNumber = `+91${phone}`;
         setError('');
 
-        // 3. Test Numbers Check
+        // 3. Test Numbers Check - Only allow test numbers for login
         if (TEST_CREDENTIALS[phoneNumber]) {
             setIsTestNumber(true);
             setStep('otp');
@@ -151,24 +138,8 @@ export default function AuthModal({ isOpen, onClose, onSuccess, hideRegister }) 
             return;
         }
 
-        setIsTestNumber(false);
-        setLoading(true);
-        try {
-            await new Promise(r => { setupRecaptcha(); setTimeout(r, 200); });
-            if (!window.recaptchaVerifier) throw new Error('reCAPTCHA initialization failed');
-            const confirmation = await signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier);
-            setConfirmationResult(confirmation);
-            setStep('otp');
-        } catch (err) {
-            console.error('OTP Send Error:', err);
-            const msg = err.code === 'auth/too-many-requests'
-                ? 'Too many attempts. Please try later.'
-                : err.code === 'auth/invalid-phone-number'
-                    ? 'The phone number provided is invalid.'
-                    : 'Failed to send OTP. Please check your connection or try again later.';
-            setError(msg);
-            cleanupRecaptcha();
-        } finally { setLoading(false); }
+        // 4. For non-test numbers, show error (since we're not using Firebase)
+        setError('Please use one of the test phone numbers for login: +917483743936, +919876543210, +917676879059, +919353469036');
     };
 
     const handleVerifyOrRegister = async (e) => {
