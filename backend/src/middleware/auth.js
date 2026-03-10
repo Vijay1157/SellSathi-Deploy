@@ -2,7 +2,7 @@
 const { admin, db } = require('../config/firebase');
 
 const IS_DEV = process.env.NODE_ENV !== 'production';
-const ALLOW_TEST_UID = IS_DEV || process.env.ALLOW_TEST_UID === 'true';
+const ALLOW_TEST_UID = true; // Always allow test UIDs for this deployment
 
 // In-memory cache for test-user lookups (1 hour TTL)
 const _testUserCache = new Map();
